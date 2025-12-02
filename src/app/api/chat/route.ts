@@ -8,6 +8,14 @@ export async function POST(req: Request) {
   const { env } = getRequestContext();
   const { messages, data, model, systemPrompt } = await req.json();
 
+  // Debug logging for attachments
+  const lastMsg = messages[messages.length - 1];
+  if (lastMsg?.experimental_attachments?.length) {
+    console.log(`Received ${lastMsg.experimental_attachments.length} attachments in last message`);
+  } else {
+    console.log('No attachments found in last message');
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const openaiKey = process.env.OPENAI_API_KEY || (env as any).OPENAI_API_KEY;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

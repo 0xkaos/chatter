@@ -394,6 +394,23 @@ export default function Chat() {
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
                     }`}>
+                      {/* Attachments Display */}
+                      {m.experimental_attachments && m.experimental_attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {m.experimental_attachments.map((attachment, i) => (
+                            <div key={i} className="relative rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-black/5">
+                              {attachment.contentType?.startsWith('image/') && (
+                                <img 
+                                  src={attachment.url} 
+                                  alt="Attachment" 
+                                  className="max-w-[200px] max-h-[200px] object-cover" 
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {editingMessageId === m.id ? (
                         <div className="flex flex-col gap-2 min-w-[300px]">
                           <textarea
