@@ -19,7 +19,7 @@ export function Login({ onLogin }: LoginProps) {
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
       
       if (res.ok) {

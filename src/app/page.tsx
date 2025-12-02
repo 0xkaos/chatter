@@ -5,7 +5,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Login } from '@/components/Login';
 import { ChatSession } from '@/lib/types';
-import { Settings, Menu } from 'lucide-react';
+import { Settings, Menu, ListFilter, X } from 'lucide-react';
 
 export const runtime = 'edge';
 
@@ -18,12 +18,23 @@ export default function Chat() {
   const [model, setModel] = useState('gpt-4o');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showModelManager, setShowModelManager] = useState(false);
   const [availableModels, setAvailableModels] = useState<{id: string, provider: string}[]>([]);
+  const [hiddenModels, setHiddenModels] = useState<string[]>([]);
 
   // Load user from local storage on mount
   useEffect(() => {
     const storedUser = localStorage.getItem('chatter_user');
     if (storedUser) setUserId(storedUser);
+    
+    const storedHiddenModels = localStorage.getItem('chatter_hidden_models');
+    if (storedHiddenModels) {
+      try {
+        setHiddenModels(JSON.parse(storedHiddenModels));
+      } catch (e) {
+        console.error('Failed to parse hidden models', e);
+      }
+    }
 
     // Fetch models
     fetch('/api/models')
@@ -86,6 +97,15 @@ export default function Chat() {
     }
   });
 
+  const toggleModelVisibility = (modelId: string) => {
+    const newHiddenModels = hiddenModels.includes(modelId)
+      ? hiddenModels.filter(id => id !== modelId)
+      : [...hiddenModels, modelId];
+    
+    setHiddenModels(newHiddenModels);
+    localStorage.setItem('chatter_hidden_models', JSON.stringify(newHiddenModels));
+  };
+
   const handleLogin = (username: string) => {
     setUserId(username);
     localStorage.setItem('chatter_user', username);
@@ -133,7 +153,7 @@ export default function Chat() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full w-full relative">
         {/* Header */}
-        <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 z-10">
+        <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 z-10 relative">
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -150,14 +170,16 @@ export default function Chat() {
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="text-sm border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-sm border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[150px] sm:max-w-xs"
             >
               {availableModels.length > 0 ? (
-                availableModels.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.id} ({m.provider})
-                  </option>
-                ))
+                availableModels
+                  .filter(m => !hiddenModels.includes(m.id))
+                  .map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.id} ({m.provider})
+                    </option>
+                  ))
               ) : (
                 <>
                   <option value="gpt-4o">GPT-4o</option>
@@ -166,14 +188,53 @@ export default function Chat() {
                 </>
               )}
             </select>
+
+            <button
+              onClick={() => setShowModelManager(!showModelManager)}
+              className={`p-2 rounded-md transition-colors ${showModelManager ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              title="Manage Models"
+            >
+              <ListFilter size={20} />
+            </button>
             
             <button
               onClick={() => setShowSettings(!showSettings)}
               className={`p-2 rounded-md transition-colors ${showSettings ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              title="Settings"
             >
               <Settings size={20} />
             </button>
           </div>
+
+          {/* Model Manager Popup */}
+          {showModelManager && (
+            <div className="absolute top-14 right-4 w-64 max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-xl z-50 p-4 animate-in fade-in zoom-in-95 duration-100">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-sm">Manage Models</h3>
+                <button onClick={() => setShowModelManager(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="space-y-2">
+                {availableModels.map(m => (
+                  <label key={m.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-1 rounded">
+                    <input
+                      type="checkbox"
+                      checked={!hiddenModels.includes(m.id)}
+                      onChange={() => toggleModelVisibility(m.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className={hiddenModels.includes(m.id) ? 'text-gray-400' : ''}>
+                      {m.id} <span className="text-xs text-gray-500">({m.provider})</span>
+                    </span>
+                  </label>
+                ))}
+                {availableModels.length === 0 && (
+                  <div className="text-sm text-gray-500 text-center py-4">No models loaded</div>
+                )}
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Settings Panel */}
