@@ -7,6 +7,7 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch">
+      <h1 className="text-2xl font-bold text-center mb-8">Chatter</h1>
       <div className="space-y-4">
         {messages.map(m => (
           <div key={m.id} className="whitespace-pre-wrap">
