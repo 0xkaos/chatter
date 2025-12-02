@@ -33,21 +33,47 @@ export async function POST(req: Request) {
     }
   }
 
-  // If there are images in the data payload, attach them to the last message
-  const initialMessages = messages.slice(0, -1);
-  const currentMessage = messages[messages.length - 1];
+  // Process messages to handle attachments (multimodal)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const finalMessages = messages.map((m: any) => {
+    // Check for experimental_attachments (standard AI SDK way)
+    if (m.experimental_attachments && m.experimental_attachments.length > 0) {
+      return {
+        role: m.role,
+        content: [
+          { type: 'text', text: m.content },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ...m.experimental_attachments
+            .filter((a: any) => a.contentType?.startsWith('image/'))
+            .map((a: any) => ({
+              type: 'image_url',
+              image_url: { url: a.url }
+            }))
+        ]
+      };
+    }
+    
+    // Legacy: Check if this is the last message and data.images was passed
+    if (m === messages[messages.length - 1] && data && data.images && data.images.length > 0) {
+      return {
+        role: m.role,
+        content: [
+          { type: 'text', text: m.content },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ...data.images.map((image: string) => ({
+            type: 'image_url',
+            image_url: { url: image },
+          })),
+        ]
+      };
+    }
 
-  if (data && data.images && data.images.length > 0) {
-    currentMessage.content = [
-      { type: 'text', text: currentMessage.content },
-      ...data.images.map((image: string) => ({
-        type: 'image_url',
-        image_url: { url: image },
-      })),
-    ];
-  }
-
-  const finalMessages = [...initialMessages, currentMessage];
+    // Standard text message
+    return {
+      role: m.role,
+      content: m.content
+    };
+  });
   
   if (systemPrompt) {
     finalMessages.unshift({ role: 'system', content: systemPrompt });
