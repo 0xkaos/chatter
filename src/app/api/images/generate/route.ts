@@ -4,17 +4,34 @@ export const runtime = 'edge';
 
 export async function POST(request: Request) {
   const { env } = getRequestContext();
-  const { prompt, userId } = await request.json();
+  
+  // Debug logging
+  console.log('Environment keys:', Object.keys(env));
+  
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return new Response('Invalid JSON body', { status: 400 });
+  }
+
+  const { prompt, userId } = body;
+
+  if (!prompt) {
+    return new Response('Missing prompt', { status: 400 });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getImgKey = (env as any).GETIMG_API_KEY || process.env.GETIMG_API_KEY;
 
   if (!getImgKey) {
+    console.error('GETIMG_API_KEY missing');
     return new Response('GETIMG_API_KEY not configured', { status: 500 });
   }
 
   if (!env.CHATTER_DATA) {
-    return new Response('R2 binding not found', { status: 500 });
+    console.error('CHATTER_DATA R2 binding missing');
+    return new Response('R2 binding not found. Please configure CHATTER_DATA in Cloudflare Dashboard.', { status: 500 });
   }
 
   try {
@@ -41,7 +58,7 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('GetImg API error:', error);
+      console.error('GetImg API error:', response.status, error);
       return new Response(`GetImg API error: ${error}`, { status: response.status });
     }
 

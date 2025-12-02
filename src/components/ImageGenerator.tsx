@@ -69,7 +69,8 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
         setImages([newImage, ...images]);
         setPrompt(''); // Optional: clear prompt after generation
       } else {
-        console.error('Generation failed');
+        const errorText = await res.text();
+        console.error('Generation failed:', res.status, errorText);
       }
     } catch (e) {
       console.error('Error generating image', e);

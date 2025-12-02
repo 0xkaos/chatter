@@ -4,5 +4,5 @@ compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
 
 [[r2_buckets]]
-bucket_name = "chatter-data"
 binding = "CHATTER_DATA"
+bucket_name = "chatter-data"

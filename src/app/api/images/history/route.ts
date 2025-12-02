@@ -12,6 +12,7 @@ export async function GET(request: Request) {
   }
 
   if (!env.CHATTER_DATA) {
+    console.error('CHATTER_DATA R2 binding missing in history route');
     return new Response('R2 binding not found', { status: 500 });
   }
 
