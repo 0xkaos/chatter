@@ -1,14 +1,37 @@
 import { OpenAIStream, StreamingTextResponse } from 'ai';
 import OpenAI from 'openai';
+import { getRequestContext } from '@cloudflare/next-on-pages';
 
 export const runtime = 'edge';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: Request) {
+  const { env } = getRequestContext();
   const { messages, data, model, systemPrompt } = await req.json();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const openaiKey = process.env.OPENAI_API_KEY || (env as any).OPENAI_API_KEY;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const xaiKey = process.env.XAI_API_KEY || (env as any).XAI_API_KEY;
+
+  // Initialize OpenAI client
+  const openai = new OpenAI({
+    apiKey: openaiKey,
+  });
+
+  // Determine which client to use based on the model
+  let client = openai;
+  
+  // Check if it's an xAI model (usually starts with 'grok')
+  if (model && (model.includes('grok') || model.includes('xai'))) {
+    if (xaiKey) {
+      client = new OpenAI({
+        apiKey: xaiKey,
+        baseURL: 'https://api.x.ai/v1'
+      });
+    } else {
+      console.warn('xAI model requested but XAI_API_KEY not found');
+    }
+  }
 
   // If there are images in the data payload, attach them to the last message
   const initialMessages = messages.slice(0, -1);
@@ -30,7 +53,7 @@ export async function POST(req: Request) {
     finalMessages.unshift({ role: 'system', content: systemPrompt });
   }
 
-  const response = await openai.chat.completions.create({
+  const response = await client.chat.completions.create({
     model: model || 'gpt-4o',
     stream: true,
     messages: finalMessages,

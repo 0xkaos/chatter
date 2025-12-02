@@ -24,6 +24,7 @@ export async function GET(request: Request) {
       return data;
     }));
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return Response.json(chats.filter(Boolean).sort((a: any, b: any) => b.createdAt - a.createdAt));
   } catch (error) {
     console.error('Error listing chats:', error);
