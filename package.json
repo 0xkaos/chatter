@@ -10,7 +10,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.76",
     "ai": "3.4.0",
     "next": "15.0.2",
     "openai": "4.104.0",
