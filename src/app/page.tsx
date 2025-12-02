@@ -135,7 +135,15 @@ export default function Chat() {
   return (
     <div className="flex h-screen bg-white dark:bg-gray-900 overflow-hidden">
       {/* Sidebar - hidden on mobile unless open */}
-      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative z-20 h-full transition-transform duration-300 ease-in-out md:translate-x-0 flex flex-col`}>
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative z-20 h-full transition-transform duration-300 ease-in-out md:translate-x-0 flex flex-col bg-gray-50 dark:bg-gray-900`}>
+        {/* Mobile Close Button */}
+        <button 
+          onClick={() => setIsSidebarOpen(false)}
+          className="md:hidden absolute top-2 right-2 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 z-50"
+        >
+          <X size={20} />
+        </button>
+
         <Sidebar
           userId={userId}
           currentChatId={currentChatId}
