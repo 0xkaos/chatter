@@ -6,7 +6,9 @@ import { Sidebar } from '@/components/Sidebar';
 import { Login } from '@/components/Login';
 import { ImageGenerator } from '@/components/ImageGenerator';
 import { ChatSession } from '@/lib/types';
-import { Settings, Menu, ListFilter, X, MessageSquare, Image as ImageIcon, RotateCcw, Pencil, Check } from 'lucide-react';
+import { Settings, Menu, ListFilter, X, MessageSquare, Image as ImageIcon, RotateCcw, Pencil, Check, Paperclip, Trash2 } from 'lucide-react';
+import { convertFileToBase64, convertPdfToImages } from '@/lib/file-utils';
+import { useRef } from 'react';
 
 export const runtime = 'edge';
 
@@ -27,6 +29,10 @@ export default function Chat() {
   // Editing State
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+
+  // Attachments State
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load user from local storage on mount
   useEffect(() => {
@@ -58,7 +64,7 @@ export default function Chat() {
       .catch(err => console.error('Failed to fetch models', err));
   }, []);
 
-  const { messages, input, handleInputChange, handleSubmit, setMessages, reload, append } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, setMessages, reload, append, setInput } = useChat({
     body: {
       model,
       userId,
@@ -131,6 +137,60 @@ export default function Chat() {
   const startEditing = (messageId: string, content: string) => {
     setEditingMessageId(messageId);
     setEditContent(content);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      const newAttachments: string[] = [];
+
+      for (const file of files) {
+        if (file.type === 'application/pdf') {
+          try {
+            const images = await convertPdfToImages(file);
+            newAttachments.push(...images);
+          } catch (err) {
+            console.error('Error converting PDF', err);
+          }
+        } else if (file.type.startsWith('image/')) {
+          try {
+            const base64 = await convertFileToBase64(file);
+            newAttachments.push(base64);
+          } catch (err) {
+            console.error('Error reading image', err);
+          }
+        }
+      }
+      setAttachments(prev => [...prev, ...newAttachments]);
+    }
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() && attachments.length === 0) return;
+
+    const currentAttachments = attachments.map(url => ({
+      contentType: 'image/jpeg', 
+      url
+    }));
+    
+    // Clear attachments
+    setAttachments([]);
+    
+    // Use append to send message with attachments
+    append({
+      role: 'user',
+      content: input,
+      experimental_attachments: currentAttachments as any
+    });
+    
+    setInput('');
   };
 
   const toggleModelVisibility = (modelId: string) => {
@@ -392,7 +452,40 @@ export default function Chat() {
 
             {/* Input Area */}
             <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
-              <form onSubmit={handleSubmit} className="flex gap-2 max-w-4xl mx-auto">
+              {/* Attachments Preview */}
+              {attachments.length > 0 && (
+                <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
+                  {attachments.map((url, idx) => (
+                    <div key={idx} className="relative shrink-0">
+                      <img src={url} alt="Attachment" className="h-20 w-20 object-cover rounded-md border border-gray-200 dark:border-gray-700" />
+                      <button
+                        onClick={() => removeAttachment(idx)}
+                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <form onSubmit={onSubmit} className="flex gap-2 max-w-4xl mx-auto">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  multiple
+                  accept="image/*,application/pdf"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-700 rounded-lg transition-colors"
+                  title="Add Attachment"
+                >
+                  <Paperclip size={20} />
+                </button>
                 <input
                   className="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={input}
@@ -401,7 +494,7 @@ export default function Chat() {
                 />
                 <button
                   type="submit"
-                  disabled={!input.trim()}
+                  disabled={!input.trim() && attachments.length === 0}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Send
