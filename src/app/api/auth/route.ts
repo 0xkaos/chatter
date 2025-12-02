@@ -10,10 +10,21 @@ export async function POST(request: Request) {
   username = username?.trim();
   password = password?.trim();
 
-  // 1. Check legacy/simple ADMIN_PASSWORD (Master Key)
-  // Allows access with ANY username if the password matches ADMIN_PASSWORD
-  if (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) {
-    return Response.json({ success: true });
+  // 1. Check AUTH_ADMIN environment variable
+  // Format: "username:password"
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const authAdminVar = (env as any).AUTH_ADMIN || process.env.AUTH_ADMIN;
+
+  if (authAdminVar) {
+    const parts = authAdminVar.split(':');
+    if (parts.length >= 2) {
+      const adminUser = parts[0].trim();
+      const adminPass = parts.slice(1).join(':').trim();
+      
+      if (adminUser === username && adminPass === password) {
+        return Response.json({ success: true });
+      }
+    }
   }
 
   // 2. Check AUTH_USERS environment variable
