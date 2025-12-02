@@ -8,6 +8,38 @@ export default function Chat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<FileList | null>(null);
 
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    if (files && files.length > 0) {
+      // Convert files to base64
+      const attachments = await Promise.all(
+        Array.from(files).map(async (file) => {
+          return new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        })
+      );
+
+      // Send message with attachments (using data property for now as a simple way to pass it)
+      // Note: In a real app with ai SDK 3.4, we might need to construct the message manually 
+      // or use experimental_attachments if supported. For now, we'll pass it in the request body options.
+      handleSubmit(e, {
+        data: {
+          images: attachments
+        }
+      });
+      
+      setFiles(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } else {
+      handleSubmit(e);
+    }
+  };
+
   return (
     <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch">
       <h1 className="text-2xl font-bold text-center mb-8">Chatter (Stable)</h1>
@@ -17,11 +49,12 @@ export default function Chat() {
           <div key={m.id} className="whitespace-pre-wrap">
             <div className="font-bold">{m.role === 'user' ? 'User: ' : 'AI: '}</div>
             <p>{m.content}</p>
+            {/* Display images if any (this is a basic implementation, real one would parse the message content) */}
           </div>
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="fixed bottom-0 w-full max-w-md p-2 mb-8 border border-gray-300 rounded shadow-xl bg-white dark:bg-gray-800 dark:border-gray-700 flex items-center gap-2">
+      <form onSubmit={onSubmit} className="fixed bottom-0 w-full max-w-md p-2 mb-8 border border-gray-300 rounded shadow-xl bg-white dark:bg-gray-800 dark:border-gray-700 flex items-center gap-2">
         <input
           type="file"
           className="hidden"
@@ -32,7 +65,7 @@ export default function Chat() {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          className={`p-2 hover:text-gray-700 dark:hover:text-gray-200 ${files && files.length > 0 ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}
           aria-label="Upload file"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
