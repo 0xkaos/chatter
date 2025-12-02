@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { Login } from '@/components/Login';
 import { ImageGenerator } from '@/components/ImageGenerator';
 import { ChatSession } from '@/lib/types';
-import { Settings, Menu, ListFilter, X, MessageSquare, Image as ImageIcon } from 'lucide-react';
+import { Settings, Menu, ListFilter, X, MessageSquare, Image as ImageIcon, RotateCcw, Pencil, Check } from 'lucide-react';
 
 export const runtime = 'edge';
 
@@ -23,6 +23,10 @@ export default function Chat() {
   const [showModelManager, setShowModelManager] = useState(false);
   const [availableModels, setAvailableModels] = useState<{id: string, provider: string}[]>([]);
   const [hiddenModels, setHiddenModels] = useState<string[]>([]);
+
+  // Editing State
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
 
   // Load user from local storage on mount
   useEffect(() => {
@@ -54,7 +58,7 @@ export default function Chat() {
       .catch(err => console.error('Failed to fetch models', err));
   }, []);
 
-  const { messages, input, handleInputChange, handleSubmit, setMessages, reload } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, setMessages, reload, append } = useChat({
     body: {
       model,
       userId,
@@ -89,6 +93,45 @@ export default function Chat() {
       }
     }
   });
+
+  const handleEdit = (messageId: string, newContent: string) => {
+    const index = messages.findIndex(m => m.id === messageId);
+    if (index === -1) return;
+
+    // Keep messages before the edited one
+    const newHistory = messages.slice(0, index);
+    setMessages(newHistory);
+    
+    // Trigger new request with edited content
+    append({
+      role: 'user',
+      content: newContent
+    });
+    
+    setEditingMessageId(null);
+  };
+
+  const handleReroll = (messageId: string) => {
+    const index = messages.findIndex(m => m.id === messageId);
+    if (index === -1) return;
+
+    // If it's the last message and it's assistant, just reload
+    if (index === messages.length - 1 && messages[index].role === 'assistant') {
+      reload();
+      return;
+    }
+
+    // If it's an older message, we need to truncate history up to the user message before it
+    // So we keep 0 to index-1 (which includes the user message).
+    const newHistory = messages.slice(0, index);
+    setMessages(newHistory);
+    reload();
+  };
+
+  const startEditing = (messageId: string, content: string) => {
+    setEditingMessageId(messageId);
+    setEditContent(content);
+  };
 
   const toggleModelVisibility = (modelId: string) => {
     const newHiddenModels = hiddenModels.includes(modelId)
@@ -284,14 +327,63 @@ export default function Chat() {
                   <p>Start a conversation</p>
                 </div>
               ) : (
-                messages.map(m => (
-                  <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] rounded-lg p-4 ${
+                messages.map((m, idx) => (
+                  <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} group`}>
+                    <div className={`max-w-[85%] rounded-lg p-4 relative ${
                       m.role === 'user' 
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
                     }`}>
-                      <div className="whitespace-pre-wrap">{m.content}</div>
+                      {editingMessageId === m.id ? (
+                        <div className="flex flex-col gap-2 min-w-[300px]">
+                          <textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="w-full p-2 text-sm text-black dark:text-white bg-white dark:bg-gray-900 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows={3}
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => setEditingMessageId(null)}
+                              className="p-1 hover:bg-white/20 rounded"
+                            >
+                              <X size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleEdit(m.id, editContent)}
+                              className="p-1 hover:bg-white/20 rounded"
+                            >
+                              <Check size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="whitespace-pre-wrap">{m.content}</div>
+                          
+                          {/* Message Actions */}
+                          <div className={`absolute -bottom-6 ${m.role === 'user' ? 'right-0' : 'left-0'} opacity-0 group-hover:opacity-100 transition-opacity flex gap-1`}>
+                            {m.role === 'user' && (
+                              <button 
+                                onClick={() => startEditing(m.id, m.content)}
+                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                title="Edit"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                            )}
+                            {m.role === 'assistant' && (
+                              <button 
+                                onClick={() => handleReroll(m.id)}
+                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                title="Regenerate from here"
+                              >
+                                <RotateCcw size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))
