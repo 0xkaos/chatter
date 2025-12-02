@@ -1,11 +1,12 @@
 'use client';
 
 import { useChat } from 'ai/react';
-import { useRef, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Login } from '@/components/Login';
+import { ImageGenerator } from '@/components/ImageGenerator';
 import { ChatSession } from '@/lib/types';
-import { Settings, Menu, ListFilter, X } from 'lucide-react';
+import { Settings, Menu, ListFilter, X, MessageSquare, Image as ImageIcon } from 'lucide-react';
 
 export const runtime = 'edge';
 
@@ -13,6 +14,7 @@ export default function Chat() {
   const [userId, setUserId] = useState<string | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'chat' | 'images'>('chat');
   
   // Model & Settings State
   const [model, setModel] = useState('gpt-4o');
@@ -42,8 +44,6 @@ export default function Chat() {
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setAvailableModels(data);
-          // Optional: Set default model if current one isn't in list?
-          // For now, keep 'gpt-4o' as default or let user choose.
         }
       })
       .catch(err => console.error('Failed to fetch models', err));
@@ -59,18 +59,6 @@ export default function Chat() {
     onFinish: async (message) => {
       // Save chat history after each message completion
       if (userId) {
-        // We need the full message history including the new one
-        // Since onFinish gives us the new message, we can construct the payload
-        // However, useChat doesn't give us the updated messages array immediately in onFinish in a way that's easy to sync without race conditions for saving.
-        // A better approach for saving might be to rely on the server to save, or trigger a save here.
-        // For this demo, we'll trigger a save to the history API.
-        
-        // Note: In a real app, we'd probably want the server to handle persistence during the stream or after.
-        // Here we'll do a "lazy" save or rely on the user to see it in the sidebar on refresh.
-        // Actually, let's just let the server handle saving if we pass the chatId.
-        // But our current /api/chat doesn't save to R2. 
-        // So we need to explicitly save it.
-        
         const savedMessages = [...messages, message];
         const title = savedMessages[0]?.content.substring(0, 30) || 'New Chat';
         
@@ -123,6 +111,7 @@ export default function Chat() {
     setMessages(chat.messages);
     setModel(chat.model || 'gpt-4o');
     setSystemPrompt(chat.systemPrompt || '');
+    setActiveTab('chat'); // Switch to chat tab when selecting a chat
     // On mobile, close sidebar
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
@@ -130,6 +119,7 @@ export default function Chat() {
   const handleNewChat = () => {
     setCurrentChatId(null);
     setMessages([]);
+    setActiveTab('chat');
     // Keep current model/settings
   };
 
@@ -140,158 +130,198 @@ export default function Chat() {
   return (
     <div className="flex h-screen bg-white dark:bg-gray-900 overflow-hidden">
       {/* Sidebar - hidden on mobile unless open */}
-      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative z-20 h-full transition-transform duration-300 ease-in-out md:translate-x-0`}>
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative z-20 h-full transition-transform duration-300 ease-in-out md:translate-x-0 flex flex-col`}>
         <Sidebar
           userId={userId}
           currentChatId={currentChatId}
           onSelectChat={handleSelectChat}
           onNewChat={handleNewChat}
           onLogout={handleLogout}
+          className="flex-1"
         />
+        {/* Tab Switcher in Sidebar Bottom */}
+        <div className="p-2 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex gap-2">
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'chat' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+          >
+            <MessageSquare size={16} />
+            Chat
+          </button>
+          <button
+            onClick={() => setActiveTab('images')}
+            className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'images' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-100' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+          >
+            <ImageIcon size={16} />
+            Images
+          </button>
+        </div>
       </div>
 
-      {/* Main Chat Area */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full w-full relative">
-        {/* Header */}
-        <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 z-10 relative">
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="md:hidden p-2 text-gray-600 dark:text-gray-300"
-            >
-              <Menu size={20} />
-            </button>
-            <div className="font-semibold text-gray-800 dark:text-white">
-              {currentChatId ? 'Chat' : 'New Chat'}
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="text-sm border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[150px] sm:max-w-xs"
-            >
-              {availableModels.length > 0 ? (
-                availableModels
-                  .filter(m => !hiddenModels.includes(m.id))
-                  .map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.id} ({m.provider})
-                    </option>
-                  ))
-              ) : (
-                <>
-                  <option value="gpt-4o">GPT-4o</option>
-                  <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                </>
-              )}
-            </select>
-
-            <button
-              onClick={() => setShowModelManager(!showModelManager)}
-              className={`p-2 rounded-md transition-colors ${showModelManager ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-              title="Manage Models"
-            >
-              <ListFilter size={20} />
-            </button>
-            
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              className={`p-2 rounded-md transition-colors ${showSettings ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-              title="Settings"
-            >
-              <Settings size={20} />
-            </button>
-          </div>
-
-          {/* Model Manager Popup */}
-          {showModelManager && (
-            <div className="absolute top-14 right-4 w-64 max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-xl z-50 p-4 animate-in fade-in zoom-in-95 duration-100">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm">Manage Models</h3>
-                <button onClick={() => setShowModelManager(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                  <X size={16} />
+        
+        {activeTab === 'chat' ? (
+          <>
+            {/* Chat Header */}
+            <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 z-10 relative">
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className="md:hidden p-2 text-gray-600 dark:text-gray-300"
+                >
+                  <Menu size={20} />
                 </button>
-              </div>
-              <div className="space-y-2">
-                {availableModels.map(m => (
-                  <label key={m.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-1 rounded">
-                    <input
-                      type="checkbox"
-                      checked={!hiddenModels.includes(m.id)}
-                      onChange={() => toggleModelVisibility(m.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className={hiddenModels.includes(m.id) ? 'text-gray-400' : ''}>
-                      {m.id} <span className="text-xs text-gray-500">({m.provider})</span>
-                    </span>
-                  </label>
-                ))}
-                {availableModels.length === 0 && (
-                  <div className="text-sm text-gray-500 text-center py-4">No models loaded</div>
-                )}
-              </div>
-            </div>
-          )}
-        </header>
-
-        {/* Settings Panel */}
-        {showSettings && (
-          <div className="bg-gray-50 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 animate-in slide-in-from-top-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              System Prompt
-            </label>
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="You are a helpful assistant..."
-              className="w-full p-2 text-sm border rounded-md dark:bg-gray-900 dark:border-gray-600 dark:text-white h-24 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        )}
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400">
-              <div className="text-4xl mb-4">👋</div>
-              <p>Start a conversation</p>
-            </div>
-          ) : (
-            messages.map(m => (
-              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-lg p-4 ${
-                  m.role === 'user' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-                }`}>
-                  <div className="whitespace-pre-wrap">{m.content}</div>
+                <div className="font-semibold text-gray-800 dark:text-white">
+                  {currentChatId ? 'Chat' : 'New Chat'}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+              
+              <div className="flex items-center gap-2">
+                <select
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  className="text-sm border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[150px] sm:max-w-xs"
+                >
+                  {availableModels.length > 0 ? (
+                    availableModels
+                      .filter(m => !hiddenModels.includes(m.id))
+                      .map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.id} ({m.provider})
+                        </option>
+                      ))
+                  ) : (
+                    <>
+                      <option value="gpt-4o">GPT-4o</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </>
+                  )}
+                </select>
 
-        {/* Input Area */}
-        <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
-          <form onSubmit={handleSubmit} className="flex gap-2 max-w-4xl mx-auto">
-            <input
-              className="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={input}
-              placeholder="Type a message..."
-              onChange={handleInputChange}
-            />
-            <button
-              type="submit"
-              disabled={!input.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Send
-            </button>
-          </form>
-        </div>
+                <button
+                  onClick={() => setShowModelManager(!showModelManager)}
+                  className={`p-2 rounded-md transition-colors ${showModelManager ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  title="Manage Models"
+                >
+                  <ListFilter size={20} />
+                </button>
+                
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className={`p-2 rounded-md transition-colors ${showSettings ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  title="Settings"
+                >
+                  <Settings size={20} />
+                </button>
+              </div>
+
+              {/* Model Manager Popup */}
+              {showModelManager && (
+                <div className="absolute top-14 right-4 w-64 max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-xl z-50 p-4 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-sm">Manage Models</h3>
+                    <button onClick={() => setShowModelManager(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {availableModels.map(m => (
+                      <label key={m.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={!hiddenModels.includes(m.id)}
+                          onChange={() => toggleModelVisibility(m.id)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className={hiddenModels.includes(m.id) ? 'text-gray-400' : ''}>
+                          {m.id} <span className="text-xs text-gray-500">({m.provider})</span>
+                        </span>
+                      </label>
+                    ))}
+                    {availableModels.length === 0 && (
+                      <div className="text-sm text-gray-500 text-center py-4">No models loaded</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </header>
+
+            {/* Settings Panel */}
+            {showSettings && (
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 animate-in slide-in-from-top-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  System Prompt
+                </label>
+                <textarea
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  placeholder="You are a helpful assistant..."
+                  className="w-full p-2 text-sm border rounded-md dark:bg-gray-900 dark:border-gray-600 dark:text-white h-24 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth">
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                  <div className="text-4xl mb-4">👋</div>
+                  <p>Start a conversation</p>
+                </div>
+              ) : (
+                messages.map(m => (
+                  <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] rounded-lg p-4 ${
+                      m.role === 'user' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                    }`}>
+                      <div className="whitespace-pre-wrap">{m.content}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Input Area */}
+            <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
+              <form onSubmit={handleSubmit} className="flex gap-2 max-w-4xl mx-auto">
+                <input
+                  className="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={input}
+                  placeholder="Type a message..."
+                  onChange={handleInputChange}
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Send
+                </button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col h-full">
+            <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 z-10">
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className="md:hidden p-2 text-gray-600 dark:text-gray-300"
+                >
+                  <Menu size={20} />
+                </button>
+                <div className="font-semibold text-gray-800 dark:text-white">
+                  Image Generator
+                </div>
+              </div>
+            </header>
+            <ImageGenerator userId={userId} />
+          </div>
+        )}
       </div>
     </div>
   );
