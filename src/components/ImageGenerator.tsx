@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Send, Plus, Trash2, Image as ImageIcon, Copy } from 'lucide-react';
+import { Send, Plus, Trash2, Image as ImageIcon, Copy, Settings, X } from 'lucide-react';
 
 interface ImageGeneratorProps {
   userId: string;
@@ -21,6 +21,12 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
   const [snippets, setSnippets] = useState<string[]>([]);
   const [newSnippet, setNewSnippet] = useState('');
   const [showSnippets, setShowSnippets] = useState(true);
+  
+  // Settings State
+  const [showSettings, setShowSettings] = useState(false);
+  const [width, setWidth] = useState(1024);
+  const [height, setHeight] = useState(1024);
+  const [steps, setSteps] = useState(4);
 
   // Fetch history and snippets on mount
   useEffect(() => {
@@ -61,7 +67,13 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
       const res = await fetch('/api/images/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, userId }),
+        body: JSON.stringify({ 
+          prompt, 
+          userId,
+          width,
+          height,
+          steps
+        }),
       });
 
       if (res.ok) {
@@ -76,6 +88,24 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
       console.error('Error generating image', e);
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleDeleteImage = async (image: GeneratedImage) => {
+    if (!confirm('Are you sure you want to delete this image?')) return;
+    
+    try {
+      const res = await fetch(`/api/images/delete?key=${encodeURIComponent(image.id)}&userId=${userId}`, {
+        method: 'DELETE'
+      });
+      
+      if (res.ok) {
+        setImages(images.filter(img => img.id !== image.id));
+      } else {
+        console.error('Failed to delete image');
+      }
+    } catch (e) {
+      console.error('Error deleting image', e);
     }
   };
 
@@ -106,7 +136,78 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
   };
 
   return (
-    <div className="flex h-full bg-white dark:bg-gray-900 overflow-hidden">
+    <div className="flex h-full bg-white dark:bg-gray-900 overflow-hidden relative">
+      {/* Settings Button */}
+      <div className="absolute top-4 right-4 z-10">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="p-2 bg-white dark:bg-gray-800 rounded-full shadow-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          title="Generation Settings"
+        >
+          <Settings size={20} />
+        </button>
+      </div>
+
+      {/* Settings Popup */}
+      {showSettings && (
+        <div className="absolute top-16 right-4 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-20 p-4 animate-in fade-in zoom-in-95 duration-100">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-sm dark:text-white">Settings</h3>
+            <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+              <X size={16} />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Width: {width}px
+              </label>
+              <input 
+                type="range" 
+                min="256" 
+                max="1024" 
+                step="64" 
+                value={width} 
+                onChange={(e) => setWidth(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Height: {height}px
+              </label>
+              <input 
+                type="range" 
+                min="256" 
+                max="1024" 
+                step="64" 
+                value={height} 
+                onChange={(e) => setHeight(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Steps: {steps}
+              </label>
+              <input 
+                type="range" 
+                min="1" 
+                max="8" 
+                step="1" 
+                value={steps} 
+                onChange={(e) => setSteps(Number(e.target.value))}
+                className="w-full"
+              />
+              <p className="text-[10px] text-gray-500 mt-1">Flux Schnell works best with 4 steps.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full relative">
         
@@ -118,39 +219,48 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
               <p>No images generated yet</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {generating && (
-                <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center animate-pulse">
+                <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center animate-pulse border border-gray-200 dark:border-gray-700">
                   <span className="text-gray-500">Generating...</span>
                 </div>
               )}
               {images.map((img) => (
-                <div key={img.id} className="group relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                  <img 
-                    src={img.url} 
-                    alt={img.prompt} 
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                    <p className="text-white text-xs line-clamp-3 mb-2">{img.prompt}</p>
-                    <div className="flex justify-end gap-2">
+                <div key={img.id} className="group relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
+                  <a 
+                    href={img.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block w-full h-full cursor-zoom-in"
+                  >
+                    <img 
+                      src={img.url} 
+                      alt={img.prompt} 
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </a>
+                  
+                  {/* Overlay Actions */}
+                  <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => handleDeleteImage(img)}
+                      className="p-2 bg-black/50 hover:bg-red-600 text-white rounded-full backdrop-blur-sm transition-colors"
+                      title="Delete Image"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="text-white text-sm line-clamp-2 mb-2">{img.prompt}</p>
+                    <div className="flex justify-end">
                       <button 
                         onClick={() => insertSnippet(img.prompt)}
-                        className="p-1.5 bg-white/20 hover:bg-white/40 rounded text-white"
-                        title="Use Prompt"
+                        className="flex items-center gap-1 text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded backdrop-blur-sm transition-colors"
                       >
-                        <Copy size={14} />
+                        <Copy size={12} /> Use Prompt
                       </button>
-                      <a 
-                        href={img.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="p-1.5 bg-white/20 hover:bg-white/40 rounded text-white"
-                        title="Open Full Size"
-                      >
-                        <ImageIcon size={14} />
-                      </a>
                     </div>
                   </div>
                 </div>

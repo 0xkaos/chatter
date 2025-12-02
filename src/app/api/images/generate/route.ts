@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     return new Response('Invalid JSON body', { status: 400 });
   }
 
-  const { prompt, userId } = body;
+  const { prompt, userId, width, height, steps } = body;
 
   if (!prompt) {
     return new Response('Missing prompt', { status: 400 });
@@ -37,17 +37,26 @@ export async function POST(request: Request) {
   try {
     // Call GetImg API
     // Using Flux Schnell for speed and quality
+    // Note: Flux Schnell might ignore width/height if not supported, but we'll pass them if provided.
+    // Standard Flux Schnell usually supports standard aspect ratios.
+    
+    const params: any = {
+      prompt: prompt,
+      steps: steps || 4,
+      response_format: 'b64'
+    };
+
+    // Only add width/height if provided (Flux Schnell supports them)
+    if (width) params.width = width;
+    if (height) params.height = height;
+
     const response = await fetch('https://api.getimg.ai/v1/flux-schnell/text-to-image', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${getImgKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        prompt: prompt,
-        steps: 4,
-        response_format: 'b64'
-      }),
+      body: JSON.stringify(params),
     });
 
     if (!response.ok) {

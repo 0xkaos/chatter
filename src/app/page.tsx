@@ -13,7 +13,7 @@ export const runtime = 'edge';
 export default function Chat() {
   const [userId, setUserId] = useState<string | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
   const [activeTab, setActiveTab] = useState<'chat' | 'images'>('chat');
   
   // Model & Settings State
@@ -26,6 +26,11 @@ export default function Chat() {
 
   // Load user from local storage on mount
   useEffect(() => {
+    // Set sidebar open on desktop
+    if (window.innerWidth >= 768) {
+      setIsSidebarOpen(true);
+    }
+
     const storedUser = localStorage.getItem('chatter_user');
     if (storedUser) setUserId(storedUser);
     
