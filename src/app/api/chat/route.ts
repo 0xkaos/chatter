@@ -8,7 +8,7 @@ const openai = new OpenAI({
 });
 
 export async function POST(req: Request) {
-  const { messages, data } = await req.json();
+  const { messages, data, model, systemPrompt } = await req.json();
 
   // If there are images in the data payload, attach them to the last message
   const initialMessages = messages.slice(0, -1);
@@ -24,10 +24,16 @@ export async function POST(req: Request) {
     ];
   }
 
+  const finalMessages = [...initialMessages, currentMessage];
+  
+  if (systemPrompt) {
+    finalMessages.unshift({ role: 'system', content: systemPrompt });
+  }
+
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: model || 'gpt-4o',
     stream: true,
-    messages: [...initialMessages, currentMessage],
+    messages: finalMessages,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
