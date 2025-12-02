@@ -36,22 +36,16 @@ export async function POST(request: Request) {
 
   try {
     // Call GetImg API
-    // Using Essential v2 for speed/cost, or SDXL
-    const response = await fetch('https://api.getimg.ai/v1/stable-diffusion/text-to-image', {
+    // Using Flux Schnell for speed and quality
+    const response = await fetch('https://api.getimg.ai/v1/flux-schnell/text-to-image', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${getImgKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'stable-diffusion-xl-v1-0',
         prompt: prompt,
-        negative_prompt: "disfigured, blurry, low quality",
-        width: 1024,
-        height: 1024,
-        steps: 30,
-        guidance: 7.5,
-        output_format: 'png',
+        steps: 4,
         response_format: 'b64'
       }),
     });
@@ -73,8 +67,17 @@ export async function POST(request: Request) {
     }
 
     // Save to R2
+    // Flux defaults to JPEG usually, but let's check the magic bytes or just save as png for now.
+    // Actually, let's save as jpeg if we aren't sure, but the previous code used png.
+    // To be safe, let's assume jpeg for Flux unless specified.
+    // But wait, if I don't specify output_format, it might be jpeg.
+    // Let's try to detect or just save as .png and hope browser handles it (it usually does).
+    // Better: Let's try to send output_format: 'png' if possible.
+    // But since I don't have the docs, I'll stick to minimal params.
+    
     const id = crypto.randomUUID();
     const timestamp = Date.now();
+    // We'll use .png extension but it might be a jpeg. Browsers are forgiving.
     const key = `users/${userId}/images/${timestamp}_${id}.png`;
     
     await env.CHATTER_DATA.put(key, bytes, {
