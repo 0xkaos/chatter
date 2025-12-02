@@ -3,6 +3,8 @@
 import { useChat } from 'ai/react';
 import { useRef, useState } from 'react';
 
+export const runtime = 'edge';
+
 export default function Chat() {
   const { messages, input, handleInputChange, handleSubmit } = useChat();
   const fileInputRef = useRef<HTMLInputElement>(null);
