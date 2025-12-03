@@ -33,6 +33,15 @@ export default function Chat() {
   // Attachments State
   const [attachments, setAttachments] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Load user from local storage on mount
   useEffect(() => {
@@ -42,15 +51,17 @@ export default function Chat() {
     }
 
     const storedUser = localStorage.getItem('chatter_user');
-    if (storedUser) setUserId(storedUser);
-    
-    const storedHiddenModels = localStorage.getItem('chatter_hidden_models');
-    if (storedHiddenModels) {
-      try {
-        setHiddenModels(JSON.parse(storedHiddenModels));
-      } catch (e) {
-        console.error('Failed to parse hidden models', e);
-      }
+    if (storedUser) {
+      setUserId(storedUser);
+      // Fetch user settings
+      fetch(`/api/settings?userId=${storedUser}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.hiddenModels) {
+            setHiddenModels(data.hiddenModels);
+          }
+        })
+        .catch(err => console.error('Failed to fetch settings', err));
     }
 
     // Fetch models
@@ -210,7 +221,17 @@ export default function Chat() {
       : [...hiddenModels, modelId];
     
     setHiddenModels(newHiddenModels);
-    localStorage.setItem('chatter_hidden_models', JSON.stringify(newHiddenModels));
+    
+    if (userId) {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          settings: { hiddenModels: newHiddenModels }
+        })
+      }).catch(err => console.error('Failed to save settings', err));
+    }
   };
 
   const handleLogin = (username: string) => {
@@ -247,7 +268,7 @@ export default function Chat() {
   }
 
   return (
-    <div className="flex h-screen bg-white dark:bg-gray-900 overflow-hidden">
+    <div className="flex h-[100dvh] bg-white dark:bg-gray-900 overflow-hidden">
       {/* Sidebar - hidden on mobile unless open */}
       <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative z-20 h-full transition-transform duration-300 ease-in-out md:translate-x-0 flex flex-col bg-gray-50 dark:bg-gray-900`}>
         {/* Mobile Close Button */}
@@ -486,6 +507,7 @@ export default function Chat() {
                   </div>
                 ))
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}
