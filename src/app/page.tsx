@@ -180,6 +180,8 @@ export default function Chat() {
       url
     }));
     
+    console.log('Sending message with attachments:', currentAttachments.length);
+
     // Clear attachments
     setAttachments([]);
     
