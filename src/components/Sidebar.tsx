@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Message } from 'ai';
-import { Plus, MessageSquare, Trash2, Settings, LogOut } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, Settings, LogOut, X } from 'lucide-react';
 import { ChatSession } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -12,10 +12,11 @@ interface SidebarProps {
   onSelectChat: (chat: ChatSession) => void;
   onNewChat: () => void;
   onLogout: () => void;
+  onClose?: () => void;
   className?: string;
 }
 
-export function Sidebar({ userId, currentChatId, onSelectChat, onNewChat, onLogout, className }: SidebarProps) {
+export function Sidebar({ userId, currentChatId, onSelectChat, onNewChat, onLogout, onClose, className }: SidebarProps) {
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,10 +59,20 @@ export function Sidebar({ userId, currentChatId, onSelectChat, onNewChat, onLogo
 
   return (
     <div className={cn("flex flex-col h-full bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 w-64", className)}>
+      {onClose && (
+        <div className="md:hidden p-2 flex justify-end border-b border-gray-200 dark:border-gray-800">
+          <button 
+            onClick={onClose}
+            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      )}
       <div className="p-4 border-b border-gray-200 dark:border-gray-800">
         <button
           onClick={onNewChat}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors shadow-sm"
         >
           <Plus size={16} />
           New Chat

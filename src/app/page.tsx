@@ -182,6 +182,25 @@ export default function Chat() {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
+  const toggleModelVisibility = (modelId: string) => {
+    const newHiddenModels = hiddenModels.includes(modelId)
+      ? hiddenModels.filter(id => id !== modelId)
+      : [...hiddenModels, modelId];
+    
+    setHiddenModels(newHiddenModels);
+    
+    if (userId) {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          settings: { hiddenModels: newHiddenModels }
+        })
+      }).catch(err => console.error('Failed to save settings', err));
+    }
+  };
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() && attachments.length === 0) return;
@@ -215,23 +234,18 @@ export default function Chat() {
     setInput('');
   };
 
-  const toggleModelVisibility = (modelId: string) => {
-    const newHiddenModels = hiddenModels.includes(modelId)
-      ? hiddenModels.filter(id => id !== modelId)
-      : [...hiddenModels, modelId];
-    
-    setHiddenModels(newHiddenModels);
-    
-    if (userId) {
-      fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          settings: { hiddenModels: newHiddenModels }
-        })
-      }).catch(err => console.error('Failed to save settings', err));
+  const toggleModelManager = () => {
+    if (!showModelManager) {
+      setShowSettings(false);
     }
+    setShowModelManager(!showModelManager);
+  };
+
+  const toggleSettings = () => {
+    if (!showSettings) {
+      setShowModelManager(false);
+    }
+    setShowSettings(!showSettings);
   };
 
   const handleLogin = (username: string) => {
@@ -271,20 +285,14 @@ export default function Chat() {
     <div className="flex h-[100dvh] bg-white dark:bg-gray-900 overflow-hidden">
       {/* Sidebar - hidden on mobile unless open */}
       <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative z-20 h-full transition-transform duration-300 ease-in-out md:translate-x-0 flex flex-col bg-gray-50 dark:bg-gray-900`}>
-        {/* Mobile Close Button */}
-        <button 
-          onClick={() => setIsSidebarOpen(false)}
-          className="md:hidden absolute top-2 right-2 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 z-50"
-        >
-          <X size={20} />
-        </button>
-
+        
         <Sidebar
           userId={userId}
           currentChatId={currentChatId}
           onSelectChat={handleSelectChat}
           onNewChat={handleNewChat}
           onLogout={handleLogout}
+          onClose={() => setIsSidebarOpen(false)}
           className="flex-1"
         />
         {/* Tab Switcher in Sidebar Bottom */}
@@ -329,6 +337,10 @@ export default function Chat() {
                 <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
+                  onClick={() => {
+                    setShowSettings(false);
+                    setShowModelManager(false);
+                  }}
                   className="text-sm border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[150px] sm:max-w-xs"
                 >
                   {availableModels.length > 0 ? (
@@ -349,7 +361,7 @@ export default function Chat() {
                 </select>
 
                 <button
-                  onClick={() => setShowModelManager(!showModelManager)}
+                  onClick={toggleModelManager}
                   className={`p-2 rounded-md transition-colors ${showModelManager ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   title="Manage Models"
                 >
@@ -357,7 +369,7 @@ export default function Chat() {
                 </button>
                 
                 <button
-                  onClick={() => setShowSettings(!showSettings)}
+                  onClick={toggleSettings}
                   className={`p-2 rounded-md transition-colors ${showSettings ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   title="Settings"
                 >
