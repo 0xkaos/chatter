@@ -61,7 +61,23 @@ export async function POST(req: Request) {
       };
     }
     
-    // Legacy: Check if this is the last message and data.images was passed
+    // Legacy/Fallback: Check if data.images was passed (persisted in history)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (m.data && m.data.images && m.data.images.length > 0) {
+      return {
+        role: m.role,
+        content: [
+          { type: 'text', text: m.content },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ...m.data.images.map((image: string) => ({
+            type: 'image_url',
+            image_url: { url: image },
+          })),
+        ]
+      };
+    }
+
+    // Check if this is the last message and data.images was passed in the request body (current upload)
     if (m === messages[messages.length - 1] && data && data.images && data.images.length > 0) {
       return {
         role: m.role,

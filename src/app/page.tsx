@@ -193,7 +193,8 @@ export default function Chat() {
     append({
       role: 'user',
       content: input,
-      experimental_attachments: currentAttachments as any
+      experimental_attachments: currentAttachments as any,
+      data: { images: attachments } // Persist images in message data
     }, {
       data: {
         images: attachments // Pass raw base64 strings for backend fallback
@@ -405,10 +406,10 @@ export default function Chat() {
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
                     }`}>
                       {/* Attachments Display */}
-                      {m.experimental_attachments && m.experimental_attachments.length > 0 && (
+                      {(m.experimental_attachments?.length > 0 || (m.data as any)?.images?.length > 0) && (
                         <div className="flex flex-wrap gap-2 mb-3">
-                          {m.experimental_attachments.map((attachment, i) => (
-                            <div key={i} className="relative rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-black/5">
+                          {(m.experimental_attachments || []).map((attachment, i) => (
+                            <div key={`att-${i}`} className="relative rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-black/5">
                               {attachment.contentType?.startsWith('image/') && (
                                 <img 
                                   src={attachment.url} 
@@ -417,6 +418,16 @@ export default function Chat() {
                                 />
                               )}
                             </div>
+                          ))}
+                          {/* Fallback for data.images if experimental_attachments is missing */}
+                          {(!m.experimental_attachments?.length) && (m.data as any)?.images?.map((url: string, i: number) => (
+                             <div key={`img-${i}`} className="relative rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-black/5">
+                                <img 
+                                  src={url} 
+                                  alt="Attachment" 
+                                  className="max-w-[200px] max-h-[200px] object-cover" 
+                                />
+                             </div>
                           ))}
                         </div>
                       )}
