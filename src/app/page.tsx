@@ -1,14 +1,13 @@
 'use client';
 
 import { useChat } from 'ai/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Login } from '@/components/Login';
 import { ImageGenerator } from '@/components/ImageGenerator';
 import { ChatSession } from '@/lib/types';
 import { Settings, Menu, ListFilter, X, MessageSquare, Image as ImageIcon, RotateCcw, Pencil, Check, Paperclip, Trash2 } from 'lucide-react';
 import { convertFileToBase64, convertPdfToImages } from '@/lib/file-utils';
-import { useRef } from 'react';
 
 export const runtime = 'edge';
 
@@ -38,10 +37,6 @@ export default function Chat() {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   // Load user from local storage on mount
   useEffect(() => {
@@ -110,6 +105,11 @@ export default function Chat() {
       }
     }
   });
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleEdit = (messageId: string, newContent: string) => {
     const index = messages.findIndex(m => m.id === messageId);
