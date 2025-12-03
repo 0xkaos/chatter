@@ -186,6 +186,13 @@ export default function Chat() {
     setAttachments([]);
     
     // Use append to send message with attachments
+    // Note: In older AI SDK versions, experimental_attachments might not be supported in append.
+    // We might need to manually construct the message or use a different approach if this fails.
+    // But since we reverted to 3.4.0, let's try to stick to what worked or use data.images legacy approach if needed.
+    // Actually, the user said it worked in 2a1b3ce. Let's check what that commit did.
+    // But I don't have access to git history content easily.
+    // Let's assume 3.4.0 supports it or we need to use the data property.
+    
     append({
       role: 'user',
       content: input,
