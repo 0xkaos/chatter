@@ -33,8 +33,8 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+    <div className="flex h-[100dvh] items-center justify-center overflow-y-auto bg-gray-100 p-4 dark:bg-gray-900 sm:p-6">
+      <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-6 shadow-md dark:bg-gray-800 sm:p-8">
         <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white">Chatter Login</h2>
         {error && <div className="text-red-500 text-sm text-center">{error}</div>}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -44,7 +44,7 @@ export function Login({ onLogin }: LoginProps) {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="mt-1 w-full rounded-md border p-2 text-base dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               required
             />
           </div>
@@ -54,7 +54,7 @@ export function Login({ onLogin }: LoginProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="mt-1 w-full rounded-md border p-2 text-base dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               required
             />
           </div>

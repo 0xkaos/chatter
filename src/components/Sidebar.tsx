@@ -58,12 +58,14 @@ export function Sidebar({ userId, currentChatId, onSelectChat, onNewChat, onLogo
   };
 
   return (
-    <div className={cn("flex flex-col h-full bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 w-64", className)}>
+    <div className={cn("flex h-full w-72 max-w-[85vw] flex-col border-r border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900 md:w-64", className)}>
       {onClose && (
         <div className="md:hidden p-2 flex justify-end border-b border-gray-200 dark:border-gray-800">
           <button 
+            type="button"
             onClick={onClose}
-            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+            aria-label="Close sidebar"
           >
             <X size={20} />
           </button>
@@ -71,15 +73,16 @@ export function Sidebar({ userId, currentChatId, onSelectChat, onNewChat, onLogo
       )}
       <div className="p-4 border-b border-gray-200 dark:border-gray-800">
         <button
+          type="button"
           onClick={onNewChat}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors shadow-sm"
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-white shadow-sm transition-colors hover:bg-blue-700"
         >
           <Plus size={16} />
           New Chat
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      <div className="flex-1 overflow-y-auto overscroll-contain p-2 space-y-1">
         {loading ? (
           <div className="text-center text-gray-500 text-sm py-4">Loading...</div>
         ) : chats.length === 0 ? (
@@ -101,8 +104,10 @@ export function Sidebar({ userId, currentChatId, onSelectChat, onNewChat, onLogo
                 <span className="truncate text-sm">{chat.title || 'Untitled Chat'}</span>
               </div>
               <button
+                type="button"
                 onClick={(e) => deleteChat(e, chat.id)}
-                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-opacity"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md opacity-100 transition-all hover:bg-red-50 hover:text-red-500 md:opacity-0 md:group-hover:opacity-100 dark:hover:bg-red-950/30"
+                aria-label={`Delete ${chat.title || 'chat'}`}
               >
                 <Trash2 size={14} />
               </button>
@@ -117,7 +122,7 @@ export function Sidebar({ userId, currentChatId, onSelectChat, onNewChat, onLogo
             <div className="w-2 h-2 rounded-full bg-green-500"></div>
             {userId}
           </div>
-          <button onClick={onLogout} className="hover:text-gray-900 dark:hover:text-white">
+          <button type="button" onClick={onLogout} className="flex h-10 w-10 items-center justify-center rounded-md hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white" aria-label="Log out">
             <LogOut size={16} />
           </button>
         </div>

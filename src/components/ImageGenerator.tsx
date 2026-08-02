@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Send, Plus, Trash2, Image as ImageIcon, Copy, Settings, X } from 'lucide-react';
 
 interface ImageGeneratorProps {
@@ -27,12 +27,35 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
   const [width, setWidth] = useState(1024);
   const [height, setHeight] = useState(1024);
   const [steps, setSteps] = useState(4);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
   // Fetch history and snippets on mount
   useEffect(() => {
     fetchHistory();
     fetchSnippets();
   }, [userId]);
+
+  useEffect(() => {
+    if (!showSettings) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!settingsRef.current?.contains(target) && !settingsButtonRef.current?.contains(target)) {
+        setShowSettings(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowSettings(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showSettings]);
 
   const fetchHistory = async () => {
     try {
@@ -136,13 +159,17 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
   };
 
   return (
-    <div className="flex h-full bg-white dark:bg-gray-900 overflow-hidden relative">
+    <div className="relative flex h-full min-h-0 min-w-0 overflow-hidden bg-white dark:bg-gray-900">
       {/* Settings Button */}
       <div className="absolute top-4 right-4 z-10">
         <button
+          ref={settingsButtonRef}
+          type="button"
           onClick={() => setShowSettings(!showSettings)}
-          className="p-2 bg-white dark:bg-gray-800 rounded-full shadow-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-md transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           title="Generation Settings"
+          aria-label="Generation settings"
+          aria-expanded={showSettings}
         >
           <Settings size={20} />
         </button>
@@ -150,10 +177,10 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
 
       {/* Settings Popup */}
       {showSettings && (
-        <div className="absolute top-16 right-4 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-20 p-4 animate-in fade-in zoom-in-95 duration-100">
+        <div ref={settingsRef} className="fixed inset-x-3 top-20 z-20 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-lg border border-gray-200 bg-white p-4 shadow-xl animate-in fade-in zoom-in-95 duration-100 dark:border-gray-700 dark:bg-gray-800 sm:absolute sm:left-auto sm:right-4 sm:top-16 sm:w-72">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-sm dark:text-white">Settings</h3>
-            <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+            <button type="button" onClick={() => setShowSettings(false)} className="flex h-10 w-10 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-300" aria-label="Close generation settings">
               <X size={16} />
             </button>
           </div>
@@ -209,10 +236,10 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full relative">
+      <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col">
         
         {/* Gallery Area */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4">
           {images.length === 0 && !generating ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <ImageIcon size={48} className="mb-4 opacity-50" />
@@ -242,20 +269,23 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
                   </a>
                   
                   {/* Overlay Actions */}
-                  <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute right-2 top-2 flex gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                     <button 
+                      type="button"
                       onClick={() => handleDeleteImage(img)}
                       className="p-2 bg-black/50 hover:bg-red-600 text-white rounded-full backdrop-blur-sm transition-colors"
                       title="Delete Image"
+                      aria-label="Delete image"
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
 
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                     <p className="text-white text-sm line-clamp-2 mb-2">{img.prompt}</p>
                     <div className="flex justify-end">
                       <button 
+                        type="button"
                         onClick={() => insertSnippet(img.prompt)}
                         className="flex items-center gap-1 text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded backdrop-blur-sm transition-colors"
                       >
@@ -270,22 +300,22 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
+        <div className="safe-area-bottom shrink-0 border-t border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900 sm:p-4">
           
           {/* Snippets Bar */}
           {showSnippets && (
             <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
+              <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-xs font-semibold text-gray-500 uppercase">Snippets</span>
-                <div className="flex gap-2">
+                <div className="flex min-w-0 gap-2">
                   <input 
                     value={newSnippet}
                     onChange={(e) => setNewSnippet(e.target.value)}
                     placeholder="New snippet..."
-                    className="text-xs p-1 border rounded dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                    className="min-w-0 flex-1 rounded border p-2 text-base dark:border-gray-700 dark:bg-gray-800 dark:text-white sm:text-xs"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddSnippet()}
                   />
-                  <button onClick={handleAddSnippet} className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200">
+                  <button type="button" onClick={handleAddSnippet} className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-blue-100 text-blue-600 hover:bg-blue-200" aria-label="Add snippet">
                     <Plus size={14} />
                   </button>
                 </div>
@@ -296,7 +326,7 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
                     <button onClick={() => insertSnippet(snippet)} className="hover:text-blue-500 truncate max-w-[150px]">
                       {snippet}
                     </button>
-                    <button onClick={() => handleDeleteSnippet(idx)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button type="button" onClick={() => handleDeleteSnippet(idx)} className="flex h-7 w-7 items-center justify-center text-gray-400 opacity-100 transition-opacity hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100" aria-label="Delete snippet">
                       <Trash2 size={10} />
                     </button>
                   </div>
@@ -307,7 +337,7 @@ export function ImageGenerator({ userId }: ImageGeneratorProps) {
 
           <form onSubmit={handleGenerate} className="flex gap-2 max-w-4xl mx-auto">
             <textarea
-              className="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-24"
+              className="h-24 min-w-0 flex-1 resize-none rounded-lg border border-gray-300 bg-transparent p-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-white"
               value={prompt}
               placeholder="Describe the image you want to generate..."
               onChange={(e) => setPrompt(e.target.value)}

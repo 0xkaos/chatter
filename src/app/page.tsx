@@ -33,6 +33,10 @@ export default function Chat() {
   const [attachments, setAttachments] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const modelManagerRef = useRef<HTMLDivElement>(null);
+  const modelManagerButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -69,6 +73,45 @@ export default function Chat() {
       })
       .catch(err => console.error('Failed to fetch models', err));
   }, []);
+
+  // Dismiss transient panels when tapping elsewhere or pressing Escape.
+  useEffect(() => {
+    if (!showModelManager && !showSettings) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+
+      if (
+        showModelManager &&
+        !modelManagerRef.current?.contains(target) &&
+        !modelManagerButtonRef.current?.contains(target)
+      ) {
+        setShowModelManager(false);
+      }
+
+      if (
+        showSettings &&
+        !settingsPanelRef.current?.contains(target) &&
+        !settingsButtonRef.current?.contains(target)
+      ) {
+        setShowSettings(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowModelManager(false);
+        setShowSettings(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showModelManager, showSettings]);
 
   const { messages, input, handleInputChange, handleSubmit, setMessages, reload, append, setInput } = useChat({
     body: {
@@ -241,6 +284,22 @@ export default function Chat() {
     setShowModelManager(!showModelManager);
   };
 
+  const closeChatPopouts = () => {
+    setShowModelManager(false);
+    setShowSettings(false);
+  };
+
+  const toggleSidebar = () => {
+    closeChatPopouts();
+    setIsSidebarOpen(open => !open);
+  };
+
+  const selectTab = (tab: 'chat' | 'images') => {
+    setActiveTab(tab);
+    closeChatPopouts();
+    if (window.innerWidth < 768) setIsSidebarOpen(false);
+  };
+
   const toggleSettings = () => {
     if (!showSettings) {
       setShowModelManager(false);
@@ -266,6 +325,7 @@ export default function Chat() {
     setModel(chat.model || 'gpt-4o');
     setSystemPrompt(chat.systemPrompt || '');
     setActiveTab('chat'); // Switch to chat tab when selecting a chat
+    closeChatPopouts();
     // On mobile, close sidebar
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
@@ -274,6 +334,8 @@ export default function Chat() {
     setCurrentChatId(null);
     setMessages([]);
     setActiveTab('chat');
+    closeChatPopouts();
+    if (window.innerWidth < 768) setIsSidebarOpen(false);
     // Keep current model/settings
   };
 
@@ -282,9 +344,18 @@ export default function Chat() {
   }
 
   return (
-    <div className="flex h-[100dvh] bg-white dark:bg-gray-900 overflow-hidden">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-white dark:bg-gray-900">
+      {isSidebarOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-20 bg-black/35 backdrop-blur-[1px] md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-label="Close sidebar"
+        />
+      )}
+
       {/* Sidebar - hidden on mobile unless open */}
-      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed md:relative z-20 h-full transition-transform duration-300 ease-in-out md:translate-x-0 flex flex-col bg-gray-50 dark:bg-gray-900`}>
+      <aside id="app-sidebar" className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-30 flex flex-col bg-gray-50 transition-transform duration-300 ease-in-out dark:bg-gray-900 md:relative md:translate-x-0`}>
         
         <Sidebar
           userId={userId}
@@ -298,50 +369,60 @@ export default function Chat() {
         {/* Tab Switcher in Sidebar Bottom */}
         <div className="p-2 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex gap-2">
           <button
-            onClick={() => setActiveTab('chat')}
-            className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'chat' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+            type="button"
+            onClick={() => selectTab('chat')}
+            className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md p-2 text-sm font-medium transition-colors ${activeTab === 'chat' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
           >
             <MessageSquare size={16} />
             Chat
           </button>
           <button
-            onClick={() => setActiveTab('images')}
-            className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'images' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-100' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+            type="button"
+            onClick={() => selectTab('images')}
+            className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md p-2 text-sm font-medium transition-colors ${activeTab === 'images' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-100' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
           >
             <ImageIcon size={16} />
             Images
           </button>
         </div>
-      </div>
+      </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full w-full relative">
+      <main className="relative flex h-full min-w-0 flex-1 flex-col">
         
         {activeTab === 'chat' ? (
           <>
             {/* Chat Header */}
-            <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 z-10 relative">
-              <div className="flex items-center gap-2">
+            <header className="relative z-10 flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-2 dark:border-gray-800 dark:bg-gray-900 sm:px-4">
+              <div className="flex min-w-0 items-center gap-2">
                 <button 
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="md:hidden p-2 text-gray-600 dark:text-gray-300"
+                  type="button"
+                  onClick={toggleSidebar}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 md:hidden"
+                  aria-label="Open sidebar"
+                  aria-controls="app-sidebar"
+                  aria-expanded={isSidebarOpen}
                 >
                   <Menu size={20} />
                 </button>
-                <div className="font-semibold text-gray-800 dark:text-white">
+                <div className="hidden truncate font-semibold text-gray-800 dark:text-white sm:block">
                   {currentChatId ? 'Chat' : 'New Chat'}
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 items-center gap-1 sm:gap-2">
                 <select
                   value={model}
-                  onChange={(e) => setModel(e.target.value)}
+                  onChange={(e) => {
+                    setModel(e.target.value);
+                    closeChatPopouts();
+                  }}
                   onClick={() => {
                     setShowSettings(false);
                     setShowModelManager(false);
                   }}
-                  className="text-sm border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[150px] sm:max-w-xs"
+                  className="h-11 min-w-0 w-[42vw] max-w-40 rounded-md border border-gray-300 bg-transparent px-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-white sm:h-auto sm:w-auto sm:max-w-xs sm:py-1 sm:text-sm"
+                  aria-label="Chat model"
                 >
                   {availableModels.length > 0 ? (
                     availableModels
@@ -361,17 +442,25 @@ export default function Chat() {
                 </select>
 
                 <button
+                  ref={modelManagerButtonRef}
+                  type="button"
                   onClick={toggleModelManager}
-                  className={`p-2 rounded-md transition-colors ${showModelManager ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition-colors ${showModelManager ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   title="Manage Models"
+                  aria-label="Manage models"
+                  aria-expanded={showModelManager}
                 >
                   <ListFilter size={20} />
                 </button>
                 
                 <button
+                  ref={settingsButtonRef}
+                  type="button"
                   onClick={toggleSettings}
-                  className={`p-2 rounded-md transition-colors ${showSettings ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition-colors ${showSettings ? 'bg-gray-100 dark:bg-gray-800 text-blue-600' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   title="Settings"
+                  aria-label="Chat settings"
+                  aria-expanded={showSettings}
                 >
                   <Settings size={20} />
                 </button>
@@ -379,23 +468,23 @@ export default function Chat() {
 
               {/* Model Manager Popup */}
               {showModelManager && (
-                <div className="absolute top-14 right-4 w-64 max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-xl z-50 p-4 animate-in fade-in zoom-in-95 duration-100">
+                <div ref={modelManagerRef} className="fixed inset-x-3 top-16 z-50 max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-200 bg-white p-4 shadow-xl animate-in fade-in zoom-in-95 duration-100 dark:border-gray-700 dark:bg-gray-900 sm:absolute sm:left-auto sm:right-4 sm:top-14 sm:w-80">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold text-sm">Manage Models</h3>
-                    <button onClick={() => setShowModelManager(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <button type="button" onClick={() => setShowModelManager(false)} className="flex h-10 w-10 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300" aria-label="Close model manager">
                       <X size={16} />
                     </button>
                   </div>
                   <div className="space-y-2">
                     {availableModels.map(m => (
-                      <label key={m.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-1 rounded">
+                      <label key={m.id} className="flex cursor-pointer items-start gap-3 rounded p-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
                         <input
                           type="checkbox"
                           checked={!hiddenModels.includes(m.id)}
                           onChange={() => toggleModelVisibility(m.id)}
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-                        <span className={hiddenModels.includes(m.id) ? 'text-gray-400' : ''}>
+                        <span className={`min-w-0 break-words ${hiddenModels.includes(m.id) ? 'text-gray-400' : ''}`}>
                           {m.label || m.id} <span className="text-xs text-gray-500">({m.provider})</span>
                         </span>
                       </label>
@@ -410,21 +499,27 @@ export default function Chat() {
 
             {/* Settings Panel */}
             {showSettings && (
-              <div className="bg-gray-50 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 animate-in slide-in-from-top-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  System Prompt
-                </label>
+              <div ref={settingsPanelRef} className="shrink-0 border-b border-gray-200 bg-gray-50 p-3 animate-in slide-in-from-top-2 dark:border-gray-700 dark:bg-gray-800 sm:p-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <label htmlFor="system-prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    System Prompt
+                  </label>
+                  <button type="button" onClick={() => setShowSettings(false)} className="flex h-10 w-10 items-center justify-center rounded-md text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700" aria-label="Close chat settings">
+                    <X size={18} />
+                  </button>
+                </div>
                 <textarea
+                  id="system-prompt"
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
                   placeholder="You are a helpful assistant..."
-                  className="w-full p-2 text-sm border rounded-md dark:bg-gray-900 dark:border-gray-600 dark:text-white h-24 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="h-24 w-full resize-none rounded-md border p-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white sm:text-sm"
                 />
               </div>
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth">
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-3 scroll-smooth sm:p-4">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400">
                   <div className="text-4xl mb-4">👋</div>
@@ -433,13 +528,13 @@ export default function Chat() {
               ) : (
                 messages.map((m, idx) => (
                   <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} group`}>
-                    <div className={`max-w-[85%] rounded-lg p-4 relative ${
+                    <div className={`relative min-w-0 max-w-[92%] break-words rounded-lg p-4 sm:max-w-[85%] ${
                       m.role === 'user' 
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
                     }`}>
                       {/* Attachments Display */}
-                      {(m.experimental_attachments?.length > 0 || (m.data as any)?.images?.length > 0) && (
+                      {((m.experimental_attachments?.length ?? 0) > 0 || (m.data as any)?.images?.length > 0) && (
                         <div className="flex flex-wrap gap-2 mb-3">
                           {(m.experimental_attachments || []).map((attachment, i) => (
                             <div key={`att-${i}`} className="relative rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-black/5">
@@ -466,23 +561,27 @@ export default function Chat() {
                       )}
 
                       {editingMessageId === m.id ? (
-                        <div className="flex flex-col gap-2 min-w-[300px]">
+                        <div className="flex w-[72vw] max-w-full flex-col gap-2 sm:w-[32rem]">
                           <textarea
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
-                            className="w-full p-2 text-sm text-black dark:text-white bg-white dark:bg-gray-900 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full resize-none rounded border bg-white p-2 text-base text-black focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:text-white sm:text-sm"
                             rows={3}
                           />
                           <div className="flex justify-end gap-2">
                             <button 
                               onClick={() => setEditingMessageId(null)}
-                              className="p-1 hover:bg-white/20 rounded"
+                              type="button"
+                              className="flex h-10 w-10 items-center justify-center rounded hover:bg-white/20"
+                              aria-label="Cancel edit"
                             >
                               <X size={16} />
                             </button>
                             <button 
                               onClick={() => handleEdit(m.id, editContent)}
-                              className="p-1 hover:bg-white/20 rounded"
+                              type="button"
+                              className="flex h-10 w-10 items-center justify-center rounded hover:bg-white/20"
+                              aria-label="Save edit"
                             >
                               <Check size={16} />
                             </button>
@@ -493,11 +592,12 @@ export default function Chat() {
                           <div className="whitespace-pre-wrap">{m.content}</div>
                           
                           {/* Message Actions */}
-                          <div className={`absolute -bottom-6 ${m.role === 'user' ? 'right-0' : 'left-0'} opacity-0 group-hover:opacity-100 transition-opacity flex gap-1`}>
+                          <div className={`absolute -bottom-8 ${m.role === 'user' ? 'right-0' : 'left-0'} flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100`}>
                             {m.role === 'user' && (
                               <button 
                                 onClick={() => startEditing(m.id, m.content)}
-                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                type="button"
+                                className="flex h-8 w-8 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                                 title="Edit"
                               >
                                 <Pencil size={14} />
@@ -506,7 +606,8 @@ export default function Chat() {
                             {m.role === 'assistant' && (
                               <button 
                                 onClick={() => handleReroll(m.id)}
-                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                type="button"
+                                className="flex h-8 w-8 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                                 title="Regenerate from here"
                               >
                                 <RotateCcw size={14} />
@@ -523,7 +624,7 @@ export default function Chat() {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
+            <div className="safe-area-bottom shrink-0 border-t border-gray-200 bg-white p-2 dark:border-gray-800 dark:bg-gray-900 sm:p-4">
               {/* Attachments Preview */}
               {attachments.length > 0 && (
                 <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
@@ -541,7 +642,7 @@ export default function Chat() {
                 </div>
               )}
 
-              <form onSubmit={onSubmit} className="flex gap-2 max-w-4xl mx-auto">
+              <form onSubmit={onSubmit} className="mx-auto flex max-w-4xl gap-2">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -553,13 +654,14 @@ export default function Chat() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-700 rounded-lg transition-colors"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-gray-300 text-gray-500 transition-colors hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   title="Add Attachment"
+                  aria-label="Add attachment"
                 >
                   <Paperclip size={20} />
                 </button>
                 <input
-                  className="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-transparent p-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-white"
                   value={input}
                   placeholder="Type a message..."
                   onChange={handleInputChange}
@@ -567,7 +669,7 @@ export default function Chat() {
                 <button
                   type="submit"
                   disabled={!input.trim() && attachments.length === 0}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="min-h-12 shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Send
                 </button>
@@ -575,12 +677,16 @@ export default function Chat() {
             </div>
           </>
         ) : (
-          <div className="flex flex-col h-full">
+          <div className="flex h-full min-w-0 flex-col">
             <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 z-10">
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="md:hidden p-2 text-gray-600 dark:text-gray-300"
+                  type="button"
+                  onClick={toggleSidebar}
+                  className="flex h-11 w-11 items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 md:hidden"
+                  aria-label="Open sidebar"
+                  aria-controls="app-sidebar"
+                  aria-expanded={isSidebarOpen}
                 >
                   <Menu size={20} />
                 </button>
@@ -592,7 +698,7 @@ export default function Chat() {
             <ImageGenerator userId={userId} />
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
