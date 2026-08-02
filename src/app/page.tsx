@@ -22,7 +22,7 @@ export default function Chat() {
   const [systemPrompt, setSystemPrompt] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showModelManager, setShowModelManager] = useState(false);
-  const [availableModels, setAvailableModels] = useState<{id: string, provider: string}[]>([]);
+  const [availableModels, setAvailableModels] = useState<{id: string, label?: string, provider: string}[]>([]);
   const [hiddenModels, setHiddenModels] = useState<string[]>([]);
 
   // Editing State
@@ -348,7 +348,7 @@ export default function Chat() {
                       .filter(m => !hiddenModels.includes(m.id))
                       .map(m => (
                         <option key={m.id} value={m.id}>
-                          {m.id} ({m.provider})
+                          {m.label || m.id} ({m.provider})
                         </option>
                       ))
                   ) : (
@@ -396,7 +396,7 @@ export default function Chat() {
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <span className={hiddenModels.includes(m.id) ? 'text-gray-400' : ''}>
-                          {m.id} <span className="text-xs text-gray-500">({m.provider})</span>
+                          {m.label || m.id} <span className="text-xs text-gray-500">({m.provider})</span>
                         </span>
                       </label>
                     ))}
